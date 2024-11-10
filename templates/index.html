@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>iPhone Remote Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <style>
+        :root {
+            --system-blue: #007AFF;
+            --system-red: #FF3B30;
+            --system-gray: #8E8E93;
+            --system-background: #F2F2F7;
+            --system-secondary-background: #FFFFFF;
+            --system-label: #000000;
+            --system-secondary-label: #3C3C43;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background-color: var(--system-background);
+            color: var(--system-label);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1 {
+            font-size: 34px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .connection-form {
+            background: var(--system-secondary-background);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .connection-form input {
+            width: calc(100% - 32px);
+            box-sizing: border-box;
+        }
+
+        .connection-form button {
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        input {
+            width: 100%;
+            height: 44px;
+            padding: 0 19px;
+            margin-bottom: 16px;
+            border: 1px solid var(--system-gray);
+            border-radius: 10px;
+            font-size: 17px;
+            background: var(--system-background);
+            color: var(--system-label);
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--system-blue);
+            box-shadow: 0 0 0 3px rgba(0,122,255,0.1);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        button {
+            height: 44px;
+            padding: 0 20px;
+            border-radius: 10px;
+            border: none;
+            background: var(--system-blue);
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:hover {
+            background: #0071EB;
+        }
+
+        button.danger {
+            background: var(--system-red);
+        }
+
+        button.danger:hover {
+            background: #FF2D55;
+        }
+
+        .json-output {
+            background: var(--system-secondary-background);
+            padding: 24px;
+            border-radius: 14px;
+            margin-top: 24px;
+            font-size: 15px;
+            line-height: 1.4;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            max-height: 500px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            word-break: break-word;
+        }
+
+        .json-section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--system-background);
+        }
+
+        .json-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .json-section h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--system-label);
+        }
+
+        .json-key {
+            color: var(--system-blue);
+            font-weight: 500;
+        }
+
+        .json-value {
+            color: var(--system-secondary-label);
+            margin-left: 8px;
+            word-break: break-all;
+            display: inline-block;
+            max-width: calc(100% - 200px);
+        }
+
+        .error {
+            color: var(--system-red);
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(255,59,48,0.1);
+        }
+
+        .json-output::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .json-output::-webkit-scrollbar-track {
+            background: var(--system-background);
+            border-radius: 4px;
+        }
+
+        .json-output::-webkit-scrollbar-thumb {
+            background: var(--system-gray);
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 16px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>iPhone Remote Control</h1>
+    
+    <div class="connection-form">
+        <h2>SSH Connection</h2>
+        <input type="text" id="host" placeholder="Host" autocomplete="off" spellcheck="false">
+        <input type="text" id="username" placeholder="Username" autocomplete="off" spellcheck="false">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="connect()">Connect</button>
+    </div>
+
+    <div class="controls">
+        <button onclick="getDeviceInfo()">Device Info</button>
+        <button onclick="getBatteryInfo()">Battery Info</button>
+        <button onclick="getNetwork()">Network Info</button>
+        <button onclick="restartDevice()" class="danger">Restart Device</button>
+        <button onclick="shutdownDevice()" class="danger">Shutdown Device</button>
+    </div>
+
+    <div id="output" class="json-output"></div>
+
+    <script>
+        async function connect() {
+            const response = await fetch('/api/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    host: document.getElementById('host').value,
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('Connected successfully!');
+            } else {
+                alert('Connection failed!');
+            }
+        }
+
+        function formatDeviceInfo(data) {
+            const sections = {
+                'Main Information': ['DeviceName', 'ProductType', 'ProductVersion', 'BuildVersion'],
+                'Specifications': ['CPUArchitecture', 'HardwareModel', 'DeviceColor', 'DeviceClass'],
+                'Identifiers': ['UniqueDeviceID', 'SerialNumber', 'WiFiAddress', 'BluetoothAddress'],
+                'Other': []
+            };
+
+            let html = '';
+            
+            for (const [section, fields] of Object.entries(sections)) {
+                html += `<div class="json-section"><h3>${section}</h3>`;
+                
+                for (const key in data) {
+                    if (fields.includes(key) || (section === 'Other' && !Object.values(sections).flat().includes(key))) {
+                        const value = data[key] || 'N/A';
+                        html += `<div>
+                            <span class="json-key">${formatKeyToEnglish(key)}:</span> 
+                            <span class="json-value">${value}</span>
+                        </div>`;
+                    }
+                }
+                
+                html += '</div>';
+            }
+            
+            return html;
+        }
+
+        function formatKeyToEnglish(key) {
+            const translations = {
+                'DeviceName': 'Device Name',
+                'ProductType': 'Model',
+                'ProductVersion': 'iOS Version',
+                'BuildVersion': 'Build',
+                'CPUArchitecture': 'CPU Architecture',
+                'HardwareModel': 'Hardware Model',
+                'DeviceColor': 'Color',
+                'DeviceClass': 'Device Type',
+                'UniqueDeviceID': 'UDID',
+                'SerialNumber': 'Serial Number',
+                'WiFiAddress': 'WiFi MAC Address',
+                'BluetoothAddress': 'Bluetooth MAC Address',
+                'BatteryCurrentCapacity': 'Battery Level',
+                'BatteryIsCharging': 'Charging',
+                'ExternalConnected': 'Power Connected',
+                'FullyCharged': 'Fully Charged'
+            };
+            return translations[key] || key.replace(/([A-Z])/g, ' $1').trim();
+        }
+
+        async function getDeviceInfo() {
+            try {
+                const response = await fetch('/api/device_info');
+                const data = await response.json();
+                if (data.error) {
+                    document.getElementById('output').innerHTML = 
+                        `<div style="color: red">Ошибка: ${data.error}</div>`;
+                } else {
+                    document.getElementById('output').innerHTML = formatDeviceInfo(data);
+                }
+            } catch (error) {
+                document.getElementById('output').innerHTML = 
+                    `<div style="color: red">Ошибка получения данных: ${error}</div>`;
+            }
+        }
+
+        async function getBatteryInfo() {
+            try {
+                const response = await fetch('/api/battery');
+                const data = await response.json();
+                if (data.error) {
+                    document.getElementById('output').innerHTML = 
+                        `<div class="error">Error: ${data.error}</div>`;
+                } else {
+                    document.getElementById('output').innerHTML = 
+                        `<div class="json-section">
+                            <h3>Battery Information</h3>
+                            <div class="json-value">
+                                ${Object.entries(data)
+                                    .map(([key, value]) => 
+                                        `<div><span class="json-key">${formatKeyToEnglish(key)}:</span> ${value}</div>`)
+                                    .join('')}
+                            </div>
+                        </div>`;
+                }
+            } catch (error) {
+                document.getElementById('output').innerHTML = 
+                    `<div class="error">Error: ${error}</div>`;
+            }
+        }
+
+        async function restartDevice() {
+            if (confirm('Are you sure you want to restart the device?')) {
+                try {
+                    const response = await fetch('/api/restart', { method: 'POST' });
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('output').innerHTML = 
+                            `<div class="json-section">
+                                <h3>Restart</h3>
+                                <div class="json-value">Device is restarting...</div>
+                            </div>`;
+                    } else {
+                        document.getElementById('output').innerHTML = 
+                            `<div class="error">Error: ${data.error}</div>`;
+                    }
+                } catch (error) {
+                    document.getElementById('output').innerHTML = 
+                        `<div class="error">Error: ${error}</div>`;
+                }
+            }
+        }
+
+        async function shutdownDevice() {
+            if (confirm('Are you sure you want to shut down the device?')) {
+                try {
+                    const response = await fetch('/api/shutdown', { method: 'POST' });
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('output').innerHTML = 
+                            `<div class="json-section">
+                                <h3>Shutdown</h3>
+                                <div class="json-value">Device is shutting down...</div>
+                            </div>`;
+                    } else {
+                        document.getElementById('output').innerHTML = 
+                            `<div class="error">Error: ${data.error}</div>`;
+                    }
+                } catch (error) {
+                    document.getElementById('output').innerHTML = 
+                        `<div class="error">Error: ${error}</div>`;
+                }
+            }
+        }
+
+        async function getNetwork() {
+            try {
+                const response = await fetch('/api/network');
+                const data = await response.json();
+                document.getElementById('output').innerHTML = 
+                    `<div class="json-section">
+                        <h3>Network Information</h3>
+                        ${Object.entries(data)
+                            .map(([key, value]) => 
+                                `<div><span class="json-key">${formatKeyToEnglish(key)}:</span> 
+                                 <span class="json-value">${value}</span></div>`)
+                            .join('')}
+                    </div>`;
+            } catch (error) {
+                document.getElementById('output').innerHTML = 
+                    `<div class="error">Error: ${error}</div>`;
+            }
+        }
+    </script>
+</body>
+</html> 
